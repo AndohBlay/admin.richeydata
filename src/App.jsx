@@ -143,11 +143,11 @@ const toCsv=rows=>{const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))],esc=
 function Backup(){
  const[busy,setBusy]=useState(''),[last,setLast]=useState(()=>{try{return localStorage.getItem('rd_last_backup')}catch{return null}}),today=new Date().toISOString().slice(0,10)
  const days=last?Math.floor((Date.now()-new Date(last).getTime())/864e5):null
- const full=async()=>{setBusy('all');try{const out={app:'RicheyData',exported_at:new Date().toISOString(),tables:{}};for(const[t]of BK)out.tables[t]=await fetchAll(t)
-  save(JSON.stringify(out),`richeydata-backup-${today}.json`,'application/json');const n=new Date().toISOString();try{localStorage.setItem('rd_last_backup',n)}catch{};setLast(n);toast('Backup downloaded. Move it somewhere safe, not just this computer.','ok')}catch(e){toast('Backup failed: '+e.message,'err')}setBusy('')}
+ const full=async()=>{setBusy('all');try{const XLSX=await import('xlsx'),wb=XLSX.utils.book_new();for(const[t]of BK){const rows=(await fetchAll(t)).map(r=>Object.fromEntries(Object.entries(r).map(([k,v])=>[k,v&&typeof v==='object'?JSON.stringify(v):v])));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),t)}
+  XLSX.writeFile(wb,`richeydata-backup-${today}.xlsx`);const n=new Date().toISOString();try{localStorage.setItem('rd_last_backup',n)}catch{};setLast(n);toast('Backup downloaded. Move it somewhere safe, not just this computer.','ok')}catch(e){toast('Backup failed: '+e.message,'err')}setBusy('')}
  const one=async t=>{setBusy(t);try{save(toCsv(await fetchAll(t)),`richeydata-${t}-${today}.csv`,'text/csv')}catch(e){toast('Export failed: '+e.message,'err')}setBusy('')}
- return <><div className="c" style={{maxWidth:640}}><h3>Download a full backup</h3><p>One file with every order, customer, bundle and price. Do this once a month, and after any very busy period.</p>
+ return <><div className="c" style={{maxWidth:640}}><h3>Download a full backup</h3><p>One Excel file with a sheet for every order, customer, bundle and price. Do this once a month, and after any very busy period.</p>
  <p className={days===null||days>30?'red':'grn'}><b>{last?`Last backup: ${days===0?'today':days+' day(s) ago'}`:'You have not downloaded a backup yet.'}</b></p>
- <button className="p" disabled={!!busy} onClick={full}>{busy==='all'?'Preparing backup...':'Download full backup (JSON)'}</button>
+ <button className="p" disabled={!!busy} onClick={full}>{busy==='all'?'Preparing backup...':'Download full backup (Excel)'}</button>
  <p className="note" style={{marginTop:12}}>The file contains customer details, including AFA Ghana Card numbers. Keep it in a private place, such as a private Google Drive folder, and never share it.</p></div>
  <div className="c" style={{maxWidth:640}}><h3>Spreadsheet exports</h3><p>Open these in Excel or Google Sheets.</p>{BK.map(([t,l])=><button key={t} className="p" style={{margin:'0 8px 8px 0'}} disabled={!!busy} onClick={()=>one(t)}>{busy===t?'Preparing...':l}</button>)}</div></>}
